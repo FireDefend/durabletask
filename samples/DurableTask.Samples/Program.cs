@@ -22,6 +22,7 @@ namespace DurableTask.Samples
     using System.IO;
     using System.Linq;
     using System.Threading;
+    using System.Threading.Tasks;
     using DurableTask.AzureStorage;
     using DurableTask.Core;
     using DurableTask.Core.Tracing;
@@ -40,13 +41,15 @@ namespace DurableTask.Samples
     {
         static readonly Options ArgumentOptions = new Options();
         static ObservableEventListener eventListener;
+        public static int instances = 0;
+        public static int totalInstance = 0;
 
         [STAThread]
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             eventListener = new ObservableEventListener();
-            eventListener.LogToConsole();
-            eventListener.EnableEvents(DefaultEventSource.Log, EventLevel.LogAlways);
+            // eventListener.LogToConsole();
+            // eventListener.EnableEvents(DefaultEventSource.Log, EventLevel.LogAlways);
 
             if (CommandLine.Parser.Default.ParseArgumentsStrict(args, ArgumentOptions))
             {
@@ -196,9 +199,42 @@ namespace DurableTask.Samples
 
                         OrchestrationState taskResult = taskHubClient.WaitForOrchestrationAsync(instance, TimeSpan.FromSeconds(60), CancellationToken.None).Result;
                         Console.WriteLine($"Task done: {taskResult?.OrchestrationStatus}");
+                        while (true)
+                        {
+                            var instanceId = Guid.NewGuid().ToString();
+                            instance = taskHubClient.CreateOrchestrationInstanceAsync(typeof(MigrateOrchestration), instanceId,
+                                new MigrateOrchestrationData { SubscriptionId = "03a1cd39-47ac-4a57-9ff5-a2c2a2a76088", IsDisabled = false }).Result;
 
-                        Console.WriteLine("Press any key to quit.");
+                            taskResult = taskHubClient.WaitForOrchestrationAsync(instance, TimeSpan.FromSeconds(60), CancellationToken.None).Result;
+                            Console.WriteLine($"Task done: {taskResult?.OrchestrationStatus}");
+                            Console.WriteLine($"Task count: {Program.instances}");
+                            string path = @"c:\temp\instanceaccounts.txt";
+                            // This text is added only once to the file.
+                            if (!File.Exists(path))
+                            {
+                                // Create a file to write to.
+                                using (StreamWriter sw = File.CreateText(path))
+                                {
+                                    sw.WriteLine($"Task count: {Program.instances}");
+                                    sw.WriteLine($"Total count: {Program.totalInstance}");
+
+                                }
+                            }
+                            else
+                            {
+                                using (StreamWriter sw = File.AppendText(path))
+                                {
+                                    sw.WriteLine($"Task count: {Program.instances}");
+                                    sw.WriteLine($"Total count: {Program.totalInstance}");
+                                }
+                            }
+                            await Task.Delay(60000);
+                        }
+
+                        // Console.WriteLine("Press any key to quit.");
+#pragma warning disable CS0162 // Unreachable code detected
                         Console.ReadLine();
+#pragma warning restore CS0162 // Unreachable code detected
 
                         taskHubWorker.StopAsync(true).Wait();
                     }

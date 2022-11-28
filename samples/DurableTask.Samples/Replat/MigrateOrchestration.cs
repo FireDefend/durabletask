@@ -15,7 +15,9 @@ namespace DurableTask.Samples.Replat
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using DurableTask.Core;
 
@@ -26,6 +28,18 @@ namespace DurableTask.Samples.Replat
         MigrateOrchestrationStatus status;
         IMigrationTasks antaresReplatMigrationTasks;
         IManagementSqlOrchestrationTasks managementDatabaseTasks;
+        public MigrateOrchestration():base()
+        {
+            
+            Interlocked.Increment(ref Program.instances);
+            Interlocked.Increment(ref Program.totalInstance);
+        }
+
+        ~MigrateOrchestration()
+        {
+            Interlocked.Decrement(ref Program.instances);
+        }
+
 
         readonly RetryOptions retryOptions = new RetryOptions(TimeSpan.FromSeconds(30), 5)
         {
